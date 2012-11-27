@@ -212,6 +212,7 @@ function createNewSheet(title, pid){
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.insertSheet(title);
   var res = Browser.msgBox(title + 'のガントチャートを書き込みます', Browser.Buttons.OK_CANCEL);
+//  var res = 'ok';
   if(res == 'ok')
     return rewrite();
   else
@@ -239,7 +240,7 @@ function setColorOnToday(row_num) {
   
   // 今日の日付があれば、色を塗る
   if (todayColumn != undefined) {
-    sheet.getRange(2, todayColumn, row_num, 1).setBackgroundColor(COLOR_TODAY_BACKGROUND).setFontColor(COLOR_TODAY_TEXT);
+    sheet.getRange(2, todayColumn, row_num, 1).setBackgroundColor(COLOR_TODAY_BACKGROUND);
   }
 }
 
@@ -262,6 +263,7 @@ function rewrite(){
   }
   
   var res = Browser.msgBox(sName + ' の更新', 'データベースを更新しますか？', Browser.Buttons.YES_NO_CANCEL);
+//  var res = 'yes';
   switch (res){
     case 'yes':
       ss.toast('Reloading '+sName+' start');
@@ -402,7 +404,6 @@ function writeIteration(sheet,current,row,itNum,pid){
 }
 
 function writeUpdateTime(pid){
-  pid=638215;
   var sheet = SpreadsheetApp.getActiveSheet();
   var range = getArea('update');
   var date  = Utilities.jsonParse(ScriptProperties.getProperty(pid)).update;
