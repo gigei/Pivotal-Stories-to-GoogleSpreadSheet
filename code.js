@@ -1,4 +1,3 @@
-
 // Copyright (C) 2012 Nihon Gigei, Inc. <http://rakumo.gigei.jp/>
 // Licensed under the terms of the MIT License
 
