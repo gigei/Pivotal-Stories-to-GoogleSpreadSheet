@@ -24,6 +24,6 @@ Call 'rewrite' or click 'PivotalTracker' -> 'update this sheet'
 
 ---
 #Lisence
-MIT: http://rem.mit-license.org
+MIT: http://rem.mit-license.org  
 Copyright (c) 2012 Nihon Gigei, Inc. <http://rakumo.gigei.jp>
 
