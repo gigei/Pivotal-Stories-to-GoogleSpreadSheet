@@ -2,7 +2,7 @@
 // Licensed under the terms of the MIT License
 
 /////////////////////////////
-// 初期設定
+// Initial Settings
 /////////////////////////////
 
 // Global Params
@@ -20,11 +20,11 @@ var COLOR = {
   deadline: 'pink',
 };
 var WIDTH = [18,60,200,70,140];
-var MSHEET = 'プロジェクト管理';
+var MSHEET = 'Projects';
 var PARANUM = 7;
 var LIMIT  = 50;
 
-// 各セルの色
+// Colors of cells
 var COLOR_HOLIDAY = "#DDD";
 var COLOR_WEEKDAY = "#FFD";
 var COLOR_TODAY_BACKGROUND = "#99F";
@@ -32,15 +32,15 @@ var COLOR_TODAY_TEXT = "#000";
 var COLOR_DATE_BACKGROUND = "lightgray";
 var COLOR_DATE_TEXT = "#000";
 
-// シートオープン時にメニュー追加
+// Add menus on open the Spreadsheet
 function onOpen() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   
   var menuEntries = [
-  {name: "プロジェクト選択",    functionName : "selectProject"},
-  {name: "データベース一括更新",    functionName : "reloadStories"},
-  {name: "新規シート作成",    functionName : "newSheets"},
-  {name: "シートの更新",    functionName : "rewrite"}
+  {name: "select projects",    functionName : "selectProject"},
+  //{name: "update all of DB",    functionName : "reloadStories"},
+  {name: "new sheets",    functionName : "newSheets"},
+  {name: "update this sheet",    functionName : "rewrite"}
   ];
   ss.addMenu("PivotalTracker", menuEntries);
   var apiUrl = 'https://www.pivotaltracker.com/services/v3/';
@@ -49,7 +49,7 @@ function onOpen() {
 }
 
 
-// 未作成の選択状態プロジェクトからシート作成
+// Create new sheets which is selected and uncreated
 function newSheets() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheets = ss.getSheets();
@@ -76,7 +76,7 @@ function newSheets() {
 }
 
 
-// ユーザーデータの取得
+// Get the user data
 function setUserData() {
   var apiUrl = 'https://www.pivotaltracker.com/services/v3/';
   var prop = ScriptProperties.getProperties();
@@ -98,14 +98,14 @@ function setUserData() {
 
 
 ///////////////////////////////
-// APIまわり
+// arround API
 ///////////////////////////////
 
-// APIトークンの取得
+// Get an API token
 function getToken(user,pass){
   var apiUrl = ScriptProperties.getProperty('API');
 
-  // リクエストの中身
+  // Contents of http request
   var url = 'tokens/active';
   var auth_data = Utilities.base64Encode(user + ":" + pass);
   var headers = {"Authorization" : "Basic " + auth_data};
@@ -116,7 +116,7 @@ function getToken(user,pass){
   
   // XML parse
   var els = Xml.parse(res, true).getElement();
-  var token = els.getElement('guid').getText();  //tokenを取得
+  var token = els.getElement('guid').getText();  //get a token
   return token;
 }
 
@@ -139,10 +139,10 @@ function getElementFromApi(extUrl) {
 
 
 //////////////////////////////
-// シートの整形
+// Form sheet
 //////////////////////////////
 
-//ガントチャートのシートを整形
+//form sheet to ganttchart
 function formGantt(pData,row_num){
   var sheet = SpreadsheetApp.getActiveSheet();
   var itNum = pData.end - pData.start + 1;
@@ -169,7 +169,8 @@ function formGantt(pData,row_num){
   Logger.log('diffDate: '+diffDate);
   var endDateColumn = startDateColumn + diffDate;
   
-  var week = new Array("日", "月", "火", "水", "木", "金", "土");
+  //var week = new Array("日", "月", "火", "水", "木", "金", "土");
+  var week = new Array("Su", "Mo", "Tu", "We", "Th", "Fr", "Sa");
   var month = new Array("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
   
   sheet.getRange(2, startDateColumn, row_num, diffDate).setBorder(true, true, true, true, true, true);
@@ -182,7 +183,6 @@ function formGantt(pData,row_num){
     if (i==0 || newDate.getDate() == 1) {
       sheet.getRange(1, startDateColumn + i).setValue(month[newDate.getMonth()]);
     } else {
-      // 月のセルを結合
       var mergeRangeWidth = newDate.getDate(); // 結合するセルの幅
       var firstDayColumn = startDateColumn + i - (mergeRangeWidth - 1); // 月の初めのセルの列
       if(firstDayColumn<startDateColumn){
@@ -191,7 +191,8 @@ function formGantt(pData,row_num){
       }
       sheet.getRange(1, firstDayColumn, 1, mergeRangeWidth).mergeAcross();
     }
-    if (day == "土" || day == "日") {
+    //if (day == "土" || day == "日") {
+    if (day == "Sa" || day == "Su") {
       sheet.getRange(2, startDateColumn + i, row_num, 1).setBackgroundColor(COLOR_HOLIDAY);
     }
     else {
@@ -207,11 +208,12 @@ function formGantt(pData,row_num){
   
   
 
-// 新規シートの作成
+// Create a new sheet
 function createNewSheet(title, pid){
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.insertSheet(title);
-  var res = Browser.msgBox(title + 'のガントチャートを書き込みます', Browser.Buttons.OK_CANCEL);
+  //var res = Browser.msgBox(title + 'のガントチャートを書き込みます', Browser.Buttons.OK_CANCEL);
+  var res = Browser.msgBox('write ' + title + '?', Browser.Buttons.OK_CANCEL);
 //  var res = 'ok';
   if(res == 'ok')
     return rewrite();
@@ -219,7 +221,7 @@ function createNewSheet(title, pid){
     ss.toast('Canceled.');
 }
     
-// 今日の日付を色付け
+// color on date of today
 function setColorOnToday(row_num) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getActiveSheet();
@@ -231,14 +233,12 @@ function setColorOnToday(row_num) {
   
   for (var i = 0; i < dateData[0].length; i++) {
     var aDate = Utilities.formatDate(new Date(dateData[0][i]), "GMT+9:00", "yyyy/MM/dd");
-    // 日付比較をして、今日の日付がある列を探す
     if (today == aDate) {
       todayColumn = 5 + i;
       break;
     }
   }
   
-  // 今日の日付があれば、色を塗る
   if (todayColumn != undefined) {
     sheet.getRange(2, todayColumn, row_num, 1).setBackgroundColor(COLOR_TODAY_BACKGROUND);
   }
@@ -246,10 +246,10 @@ function setColorOnToday(row_num) {
 
 
 /////////////////////////////////////
-// シートへの書き込み
+// write contents in sheet
 /////////////////////////////////////
 
-//シートの更新処理
+//main function of updating sheet
 function rewrite(){
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getActiveSheet();
@@ -262,7 +262,8 @@ function rewrite(){
     return 1;
   }
   
-  var res = Browser.msgBox(sName + ' の更新', 'データベースを更新しますか？', Browser.Buttons.YES_NO_CANCEL);
+  //var res = Browser.msgBox(sName + ' の更新', 'データベースを更新しますか？', Browser.Buttons.YES_NO_CANCEL);
+  var res = Browser.msgBox('Update ' + sName, 'update the Database?', Browser.Buttons.YES_NO_CANCEL);
 //  var res = 'yes';
   switch (res){
     case 'yes':
@@ -288,7 +289,7 @@ function rewrite(){
   }
   
   if(pData == undefined){
-    Browser.msgBox(sName + ' はアクティブではありません． [' + MSHEET + ']　を確認してください');
+    Browser.msgBox(sName + ' is not active. Confirm the sheet of [' + MSHEET + ']');
     return 1;
   }
   
@@ -299,7 +300,7 @@ function rewrite(){
   return sheet;
 }
 
-// アクティブシートへ書き込み
+// write on the active sheet
 function writeSingle(pData,row_num){
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getActiveSheet();
@@ -318,7 +319,7 @@ function writeSingle(pData,row_num){
   ss.toast("Writing done!");
 }
 
-// ストーリー書き込み
+// write Stories
 function writeStories(sheet, pData){
   var current = pData.current;
   var start   = pData.start;
@@ -450,10 +451,10 @@ function addLink(sheet, i, j, url){
 
 
 /////////////////////////////////////
-// scriptDbまわり
+// arround scriptDb
 /////////////////////////////////////
 
-// プロジェクト単体のデータを更新
+// Update data of single project
 function reloadSingle(){
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getActiveSheet();
@@ -474,7 +475,7 @@ function reloadSingle(){
   countStories(pid);
 }
 
-// プロジェクトリストのデータを更新
+// Update the list of projects
 function reloadProjectList(){
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   ss.toast('Reloading projects start');
@@ -490,7 +491,7 @@ function reloadProjectList(){
   return pList;
 }
 
-// データベースの全データをリセット
+// Reset all of the scriptDb
 function reloadAllData(){
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var db = ScriptDb.getMyDb();
@@ -516,7 +517,7 @@ function reloadAllData(){
   ss.toast('Done');
 }
 
-// 選択状態プロジェクトのストーリーデータを更新
+// Update stories of active projects
 function reloadStories(){
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var db = ScriptDb.getMyDb();
@@ -543,7 +544,7 @@ function reloadStories(){
   ss.toast('Done');
 }
 
-// プロジェクトリストを取得
+// Get the list of projects
 function getProjectList(){
   var list = {};
   var projects = getData('project');
@@ -556,29 +557,30 @@ function getProjectList(){
 
 
 /////////////////////////////////////////////////
-// UIまわり
+// arround UI
 /////////////////////////////////////////////////
 
-// プロジェクトの選択
+// Select projects
 function selectProject(){
   var userProp = UserProperties.getProperties(); 
   
   var token = userProp.pivotal_token;
-  // ユーザーデータの取得
+  // get user data
   if(token == null || token == false){
     setUserData();
   }
   
-  // プロジェクトIDを選択
+  // select ID of the project
   checkProjectUi();
 }
 
-// プロジェクト管理シートの書込
+// write the list of projects to MSHEET
 function writeProjectList(){
   var db = ScriptDb.getMyDb();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sp = ScriptProperties.getProperties();
-  var res = Browser.msgBox(MSHEET + ' の更新', 'データベースを更新しますか？', Browser.Buttons.YES_NO_CANCEL);
+  //var res = Browser.msgBox(MSHEET + ' の更新', 'データベースを更新しますか？', Browser.Buttons.YES_NO_CANCEL);
+  var res = Browser.msgBox('Update ' + MSHEET, 'update the Database?', Browser.Buttons.YES_NO_CANCEL);
   switch (res){
     case 'yes':
       ss.toast('Reloading '+MSHEET+' start');
@@ -631,7 +633,7 @@ function writeProjectList(){
   range.setValues(data).setBorder(true,true,true,true,true,true);
 }
 
-// プロジェクト選択UI
+// UI of selecting projects
 function checkProjectUi(){
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var app = UiApp.createApplication();
@@ -643,15 +645,15 @@ function checkProjectUi(){
     .setName(mData[i].projectName).setValue(mData[i].flag == true);
     wrapper.add(checkBox);
   }
-  var label = app.createLabel('Doneの最大表示数')
+  var label = app.createLabel('Max number of Done to show')
   var textBox = app.createTextBox().setName('doneToShow').setValue(mData[i].doneToShow);
   wrapper.add(label).add(textBox);
   var panels = [wrapper];
-  var tmp = Template(panels,'プロジェクトの選択','okCheckProject',wrapper);
+  var tmp = Template(panels,'Select Projects','okCheckProject',wrapper);
   ss.show(tmp);
 }
 
-// OKの場合発動
+// on case of 'OK'
 function okCheckProject(e){
   var app = UiApp.getActiveApplication();
   var ss  = SpreadsheetApp.getActiveSpreadsheet();
@@ -674,7 +676,7 @@ function okCheckProject(e){
   return app;
 }
 
-// 入力フォームのテンプレート
+// Template of inputting form
 function Template(panels, title, func, callback) {
   var app = UiApp.getActiveApplication();
   var titlePanel = app.createHorizontalPanel();
@@ -706,7 +708,7 @@ function Template(panels, title, func, callback) {
   return app;
 }
 
-// キャンセルの場合発動
+// on case of 'Cancel'
 function cancelButtonPush(){
   var app = UiApp.getActiveApplication();
   app.close();
@@ -899,7 +901,8 @@ function getManageData(arg){
   var N = PARANUM;
   var mSheet = ss.getSheetByName(MSHEET);
   if(mSheet == null){
-    Browser.msgBox('シート [' + MSHEET + '] がありません．「プロジェクト選択」を実行してください');
+    //Browser.msgBox('シート [' + MSHEET + '] がありません．「プロジェクト選択」を実行してください');
+    Browser.msgBox('A sheet of [' + MSHEET + '] doesn\'t exists.  Please execute "select projects"');
     return 1;
   }
   var mData = mSheet.getRange(3,1,20,N).getValues();
@@ -933,7 +936,8 @@ function getManageData(arg){
             obj.start = 1;
           var end = getLastIteration(String(obj.ID));
           if( end == 0 ) {
-            Browser.msgBox(obj.projectName + 'のデータがありません．データベースを更新してください');
+            //Browser.msgBox(obj.projectName + 'のデータがありません．データベースを更新してください');
+            Browser.msgBox('the data of ' + obj.projectName + 'doesn\'t exists.  Please update Database');
             return 0;
           }
           
