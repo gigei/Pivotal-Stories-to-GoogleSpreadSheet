@@ -20,7 +20,11 @@ Only having accounts of Google and Pivotal Tracker.
 
 #Usage
 To update the seet,
-Call 'rewrite' or click 'PivotalTracker' -> 'update this sheet'
+call 'rewrite' or click 'PivotalTracker' -> 'update this sheet'
+
+#Screenshots
+Please see the [blog](http://blog.gigei.jp/tech/000073.html) (Japanese)
+
 
 ---
 #Lisence
