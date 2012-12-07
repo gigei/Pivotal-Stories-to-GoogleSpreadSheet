@@ -1,0 +1,100 @@
+#GASで外部APIと連携（１／３）
+
+Google Apps Script Advent Calendarの１８日目です。
+よろしくお願いします！
+
+GASで[Pivotal Tracker](https://www.pivotaltracker.com) というプロジェクト管理ツールと連携させたスクリプトを書いてみました。
+それにまつわるGASのTips的な内容を書いていきたいと思います。
+作ったものの全容についてはこちらのブログ↓
+[GoogleAppsScriptでPivotalTrackerのストーリー/イテレーションから（あえて）ガントチャートをつくってみる](http://blog.gigei.jp/tech/000073.html)
+をご覧ください。
+
+全３回で、
+
+1. APIを呼ぶ(トークンの取得と使用)
+2. レスポンス(XML)を処理する
+3. 日付データからシート上の位置を探す
+
+という構成で書いていきたいと思います！
+
+ではまず、**"APIを呼ぶ"**ところからです。
+
+##前提
+1. GASのUrlFetchAppクラスを使う
+実際にAPIをコールしてレスポンスを受け取るにはこのクラスの機能を使います。
+2. Pivotal TrackerのAPI v3を呼ぶ
+リファレンスは[こちら](https://www.pivotaltracker.com/help/api?version=v3)
+認証方式はいまのところBasic認証のみのようです。
+
+##流れ
+1. トークンを取得する
+2. トークンを使ってAPIをコールする
+3. レスポンスを受け取る
+
+##トークンの取得
+↓のgetToken(*$ACOUNT_NAME, $PASSWORD*)で、トークンを文字列として取得できます。
+
+```javascript:gas_pivotal_api1.gs
+// APIトークンの取得
+function getToken(user,pass){
+  var apiUrl = 'https://www.pivotaltracker.com/services/v3/';   //(1)
+
+  // リクエストの中身
+  var extUrl = 'tokens/active',
+      auth_data = Utilities.base64Encode(user + ':' + pass),
+      headers = {'Authorization' : 'Basic ' + auth_data},
+      params = {'headers' : headers};                           //(2)
+
+  // fetch
+  var res = UrlFetchApp.fetch(apiUrl + extUrl , params),
+      txt = res.getContentText();                               //(3)
+
+  // XML parse
+  var elem = Xml.parse(txt, true).getElement(),                //(4)
+      token = elem.getElement('guid').getText();               //(5)
+  return token;
+}
+```
+
+以下ざっと追っていきます。
+(1) APIのベースとなるURL
+(2) フェッチするURLとヘッダとしてBasic認証のためのデータ(※1)を用意
+(3) フェッチ。resにレスポンスが格納され、そのボディがtxt
+(4) XML文字列(※2)をパースしてXMLエレメントとして取得
+(5) guidタグの中身をテキストとして取得 -> トークン文字列
+
+簡単ですね！これでめでたくトークンを取得できました。
+あとはこのトークンを添えてあげれば、Pivotal TrackerのAPIを使いたい放題です!!
+
+##APIを使用する
+では、試しにトークンを使ってみることにします。(※3)
+以下の例では、全プロジェクトの情報をXMLエレメントとして取得しています。
+ポイントとしては、トークン文字列をリクエストヘッダの中に'X-TrackerToken'の値として渡してあげるというところです。(※Pivotal Trackerでは！)
+
+```javascript:gas_pivotal_api2.gs
+function useApiTest(){
+  var apiUrl = 'https://www.pivotaltracker.com/services/v3/',
+      extUrl = 'projects',
+      token = getToken($ACOUNT, $PASSWORD),
+      headers = {'X-TrackerToken'  : token},
+      params ={method : 'get', headers: headers};
+      
+  // fetch
+  var res = UrlFetchApp.fetch(apiUrl + extUrl , params),
+      txt = res.getContentText(),
+      elem = Xml.parse(txt , true).getElement();
+  return elem;
+}
+```
+
+と、プロジェクトの情報を取得したわけですが、XMLエレメントとして取得してもそのままでは中身がまったく見えません。
+XMLをうまいこと処理してあげる必要があります。
+ということで、次回の**レスポンス(XML)を処理する**に続きたいと思います。
+
+---
+
+※1 自分はヘッダを文字列で与えればいいのかと勘違いしていたので、少しハマってしまいました。
+オブジェクトとして与えないといけないようです。
+※2 レスポンスの構造は[リファレンス](https://www.pivotaltracker.com/help/api?version=v3#retrieve_token) に載っています。
+※3 また、ここでは$USER、$PASSにアカウント名とパスワードを手打ちで入れなければいけませんが、実装するときにはそれだとトークンの意味があまりないので、トークンをどこかに保持しておいてそれを呼び出すようにするとよいかと思います。
+ちなみに僕はGASのUserPropertiesという機能を使いました。
