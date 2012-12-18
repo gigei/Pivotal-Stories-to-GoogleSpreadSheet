@@ -1,0 +1,37 @@
+[前回](http://qiita.com/items/b7e10cd662d742df6d7c)からの続きです。
+よろしくお願いします！
+
+今回もPivotalTracker(以下PT)からスプレッドシートにガントチャートを作成する(※1)というお話です．
+前回はAPI(PT APIv3)からデータを取得してデータベース(ScriptDb)に入れるところまででした．
+それを受けまして今回は、**日付データとシート上の位置を対応付ける**という事をしたいと思います。
+
+##前提
+1. APIから取得した日付データを参照してスプレッドシートにカレンダー形式で配置したい
+今回はシートの1列を1日として扱うので，ざっくり言えば日付文字列から列番号を計算する作業となります．
+2. スプレッドシート上にカレンダーっぽいものを配置してある
+ここでは1行目にヘッダーとして日付を入れておきます．
+3. 日付（文字列）の形式が予めわかっている
+当然ですが，わかっていないとどうしようもないですね．僕みたいな初心者的にはタイムゾーンの扱いが落とし穴になりがちだと思いますので気をつけなければいけません．
+4. 日付の処理にはjavascriptのDateクラスを使う
+若干GASのTipsとしてはアレかもしれませんが，まあ，Spreadsheetの日付と対応付ける場面は結構想定され得ると思いますので，少し触れたいと思います．
+
+## 日付文字列をAPIから取得する
+
+## 文字列をパースしてDateオブジェクトに変換する
+## ヘッダー部分の日付を取得する
+## ヘッダーの日付を走査してAPIからの日付と比較する
+## ヒットした日付のある列番号を得る
+
+> ##Return Dates in UTC
+> By default, all dates are returned in the user's timezone, which can be
+> configured on the Profile page (accessible via the drop-down menu under your
+> name in the top right corner). If you prefer dates to be returned in UTC, add
+> the X-Tracker-Use-UTC header.
+
+##まとめ
+
+---
+
+※1 実際の作成の経緯については[こちらのブログ](http://blog.gigei.jp/tech/000073.html)を参照してください．
+※2 詳しくは、[GASのリファレンス](https://developers.google.com/apps-script/service_scriptdb)を参照してください。
+
