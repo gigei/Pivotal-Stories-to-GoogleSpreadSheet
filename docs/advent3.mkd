@@ -123,6 +123,7 @@ function sample_calendar(){
 (5)セルの数値書式を設定しています．
 
 というわけで，sample\_calendar()を実行すると，↓こんなかんじになるかと思います．
+
 ![screenshot\_sample\_calendar](https://github.com/gigei/Pivotal-Stories-to-GoogleSpreadSheet/blob/master/fig/capture01.png "サンプルのスクリーンショット")
 
 ##ポイント
