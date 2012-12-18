@@ -1,0 +1,124 @@
+[前回](http://qiita.com/items/30747232987c154a01be)からの続きです。
+よろしくお願いします！
+
+今回もPivotalTracker(以下PT)に関する話です。
+前回はGASから外部のAPI(当記事ではPT APIv3)をコールして、レスポンスを受け取るということをしました。
+それを受けまして今回は、**レスポンス(XML)を処理する**という事をします。
+
+##前提
+1. APIのレスポンスがXML形式だ
+GASにはXml ServicesというXmlに関するクラス郡が用意されていますのでこれを使います。
+2. 事前にXMLの構造がわかっている
+[APIのリファレンス](https://www.pivotaltracker.com/help/api?version=v3)にレスポンスのサンプルが書いてるので、これも見つつ読んでもらえるとわかりやすいと思います。
+3. データの取得のみ行う
+PTのAPIでは、取得だけでなく、追加や編集なども行えるのですが、今回扱っているのは取得だけです
+
+##流れ
+1. XMLをパースしてオブジェクトに変換する
+2. オブジェクトをデータベース(ScriptDb)に入れる
+
+##XMLをパースしてオブジェクトに変換する
+↓のgetProjectsAsObject(*$ACOUNT_NAME, $PASSWORD*)で、全プロジェクトの情報をオブジェクトとして取得できます。
+
+```javascript:gas_pivotal_api3.gs
+function getProjectsAsObject(user, pass){
+  var elem = getProjectsAsXmlElement(user, pass),       //(1)
+      projects_xml = elem.getElements(),                //(2)
+      obj = {};
+  for (var i in projects_xml){
+    obj[i] = getChild(projects_xml[i]);                 //(3)
+  }
+  return obj;
+}
+
+function getChild(elem){                                //(4)
+  var child = {},
+      par_elems = elem.getElements();
+  for ( var i in par_elems ) {
+    var par = par_elems[i],
+        Name = par.getName().getLocalName();
+    if(par.type == 'array'){
+      par = par.getElements();
+      var array = [];
+      for( var j in par ){
+        array[j] = arguments.callee(par[j]);
+      }
+      par = array;
+    }
+    else {
+      par = par.Text;
+    }
+    child[Name] = par;
+  }
+  return child;
+}
+```
+
+以下ざっと追っていきます。
+(1) 前回使った関数でAPIのレスポンスをXmlElementとして取得します。
+(2) さらに下の階層のXmlElementの配列を取得するために、getElements()というメソッドを呼んでいます。
+(3) 再帰的にパースしてオブジェクトとして変換します。
+(4) エレメントが複数あるかで場合わけしたり、要素名をオブジェクトのキーにしたりしています。GASのTipsから大分外れてしまうので、詳しい説明は省略します。(説明できないわけではry)
+
+##オブジェクトをデータベースに入れる
+これで晴れてオブジェクトとしてデータを取得できたので、あとは好きなように表示させればいいわけですが、取ったデータは保持しておきたいと思うのが人情であります。
+というわけで、データベースに入れてしまいましょう。
+データベースと言っても、ここで使うのはGASにオリジナルで実装されているScriptDbという簡易的なモノです。容量はあまり大きくありませんが、オブジェクトをそのまま扱えるので、お手軽です。
+場合によっては、スプレッドシートをそのままデータベース的に使ってしまうのもアリかもしれません。
+
+```javascript:gas_pivotal_api4.gs
+function saveObject(user, pass){
+  var obj = getProjectsAsObject(user, pass);
+  var db = ScriptDb.getMyDb();
+  for( var i in obj ){
+    var record = obj[i];
+    record.type = 'project';
+    db.save(record);
+  }
+}
+```
+
+これで、１プロジェクトを１レコードとして、ScriptDbに入れました。
+同じように、他のデータについてもまとめて入れることができます。
+ただし、複数の種類のデータを入れるときは、そのまま入れただけでは後で区別がつかなくなってしまうので、統一したキーを設定して、それをオブジェクトに追加してから入れるようにした方がいいようです。
+たとえば、ここではプロジェクトのデータとわかるように、
+    record.type = 'project';
+と'type'という要素を追加しています。
+
+##データベースからオブジェクトを取り出す
+せっかくデータベースにデータを入れたので、取り出すほうもやってみたいと思います。
+ScriptDbでは、クエリもオブジェクトとして指定できます。
+次の例では、プロジェクトの全データから、'id'が3より小さいものを選んでいます。
+つまり、idが1と2のプロジェクトのデータが返ってきてくれると期待できます。
+(もちろん、データが入っていれば、という前提ですが！)
+
+```javascript:gas_pivotal_api5.gs
+function getObjectFromDb(){
+  var db = ScriptDb.getMyDb(),
+    obj = {};
+    query = {type: 'project', id: db.lessThan(3)},
+    projects = db.query(query);
+  while(projects.hasNext()){
+    var record = projects.next();
+    obj[record.id] = record;
+  }
+  return obj;
+}
+```
+
+他にもクエリによって、キーを指定してソートしたり、ほしい値のリストを指定したりできます。(※1)
+簡単で便利ですね！
+
+##まとめ
+ここまでで、APIからデータを取得してデータベースに入れるところまで行きました。
+しかしこのままでは何の役にも立たないないですね。
+
+次回はいよいよ(ようやく?)取得したデータをスプレッドシートに表示する部分の説明です。
+ただし、すべて網羅しようと思ったら日が暮れてしまいますので、
+ポイントを絞りたいと思います。せっかくガントチャートですので、
+**日付データとシート上の位置を対応させる**というところについて書きたいと思います。
+
+---
+
+※1 詳しくは、[GASのリファレンス](https://developers.google.com/apps-script/service_scriptdb)を参照してください。
+
