@@ -35,3 +35,4 @@
 ※1 実際の作成の経緯については[こちらのブログ](http://blog.gigei.jp/tech/000073.html)を参照してください．
 ※2 詳しくは、[GASのリファレンス](https://developers.google.com/apps-script/service_scriptdb)を参照してください。
 
+
