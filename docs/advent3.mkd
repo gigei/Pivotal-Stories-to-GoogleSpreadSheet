@@ -5,34 +5,164 @@
 前回はAPI(PT APIv3)からデータを取得してデータベース(ScriptDb)に入れるところまででした．
 それを受けまして今回は、**日付データとシート上の位置を対応付ける**という事をしたいと思います。
 
-##前提
-1. APIから取得した日付データを参照してスプレッドシートにカレンダー形式で配置したい
+## 前提
+* APIから取得した日付データを参照してスプレッドシートにカレンダー形式で配置したい
 今回はシートの1列を1日として扱うので，ざっくり言えば日付文字列から列番号を計算する作業となります．
-2. スプレッドシート上にカレンダーっぽいものを配置してある
+* スプレッドシート上にカレンダーっぽいものを配置してある
 ここでは1行目にヘッダーとして日付を入れておきます．
-3. 日付（文字列）の形式が予めわかっている
+* 日付（文字列）の形式が予めわかっている
 当然ですが，わかっていないとどうしようもないですね．僕みたいな初心者的にはタイムゾーンの扱いが落とし穴になりがちだと思いますので気をつけなければいけません．
-4. 日付の処理にはjavascriptのDateクラスを使う
+* 日付の処理にはjavascriptのDateクラスのメソッドも少し使う
 若干GASのTipsとしてはアレかもしれませんが，まあ，Spreadsheetの日付と対応付ける場面は結構想定され得ると思いますので，少し触れたいと思います．
 
-## 日付文字列をAPIから取得する
+## 流れ
+1. 日付文字列をAPIから取得する
+2. 文字列をパースしてDateオブジェクトに変換する
+3. ヘッダー部分の日付を取得する
+4. ヘッダーの日付を走査してAPIからの日付と比較する
+5. ヒットした日付のある列番号を得る
 
-## 文字列をパースしてDateオブジェクトに変換する
-## ヘッダー部分の日付を取得する
-## ヘッダーの日付を走査してAPIからの日付と比較する
-## ヒットした日付のある列番号を得る
+## サンプル
+順を追って説明するのがとても面倒になってきたので，とりあえずサンプルを出してしまいます．
+ちょっとしたイベントを仮定して，カレンダーっぽいものを作ってみます．
 
-> ##Return Dates in UTC
+```javascript:gas_calendar.gs
+var oneDay = 1000*60*60*24,         //ミリ秒で１日分
+    term   = 28,                    //チャートの期間の日数
+    col1st = 3,                     //チャートの開始列
+    row1st = 3,                     //チャートの開始行
+    events = [
+  { start_at: '2012/12/22 10:00:00 UTC', name: '忘年会'       } ,
+  { start_at: '2012/12/24 12:00:00 UTC', name: 'Xmasパーティ' } ,
+  { start_at: '2012/12/31 10:15:00 UTC', name: '紅白歌合戦'   } ,
+  { start_at: '2013/01/01 00:00:00 UTC', name: '初詣'         } ,
+  { start_at: '2013/01/10 15:00:00 UTC', name: '誕生日'       } 
+];                                                                      //(1)
+
+//Dateオブジェクトから列番号を取得する
+function getColumnByDate(theDate) {
+  var sheet = SpreadsheetApp.getActiveSheet(),
+      chartDates = sheet.getRange(1, col1st, 1, term+1).getValues()[0];
+  
+  if( theDate < chartDates[0] )
+    return 0;
+  for(var i=0; i<term; i++){
+    var chartDate = chartDates[i];
+    if(judgeDate(chartDate, theDate))                                   //(2)
+      break;
+  }
+  return i + col1st;                                                      //(3)
+}
+
+//２つのDateオブジェクトが同じ日だったら，trueを返す
+function judgeDate(date1, date2){
+  var res = false,
+      diff_time = date2 - date1;
+  if( (diff_time <= oneDay) && (date1.getDate() == date2.getDate()) )
+    res = true;
+  return res;
+}
+
+//チャートのヘッダーをシートに書き出す
+function setHeader(){
+  var week   = ['日','月','火','水','木','金','土'];　
+  var today  = new Date(), 
+      today  = new Date(today.getYear(), today.getMonth(), today.getDate()),
+      sheet  = SpreadsheetApp.getActiveSheet(),
+      endDay = new Date(today.getTime() + oneDay * term);
+  
+  sheet.getRange(1, 1).setNumberFormat('yyyy/MM/dd').setValue(today);
+  sheet.getRange(1, 2).setNumberFormat(' 〜 yyyy/MM/dd').setValue(endDay);
+  sheet.getRange(1, col1st, 1, term+1).setNumberFormat('d');
+  sheet.getRange(2, 1, 1, 2).setValues([['イベント名', '開始時刻']]);
+  
+  for(var i=0; i<term; i++){
+    var thisDate = new Date(today.getTime() + oneDay * i),
+        day = week[thisDate.getDay()],
+        dateValues = [[thisDate],[day]],
+        column = i + col1st,
+        range = sheet.getRange(1, column, 2)
+          .setValues(dateValues);
+    sheet.setColumnWidth(column, 20);
+  }
+}
+
+//イベントをチャートに挿入
+function insertEvents(){
+  var sheet  = SpreadsheetApp.getActiveSheet();
+  for(var i=0; i<events.length; i++){
+    var name  = events[i].name,
+        start = new Date(events[i].start_at),
+        index = getColumnByDate(start);                                 //(4)
+    
+    var cell_name  = sheet.getRange(i+row1st, 1),
+        cell_start = sheet.getRange(i+row1st, 2),
+        cell_chart = sheet.getRange(i+row1st, index);
+        
+    cell_name.setValue(name);
+    cell_start
+      .setNumberFormat('MM/dd a hh:mm')                                 //(5)
+      .setValue(start);
+    cell_chart.setValue('●');
+  }
+}
+
+//サンプルを実行
+function sample_calendar(){
+  SpreadsheetApp.getActiveSheet().clear();
+  setHeader();
+  insertEvents();
+}
+```
+
+(1)こんな感じのデータがAPIから取得できたと仮定してしまいます．（※2）
+(2)チャート上の日付の値とデータとして取得した日付とを比較します．
+この時，chartDateとtheDateはDateオブジェクトを想定しています．
+(3)judgeDate()で２つが同じ日だとわかると，列番号を返してくれます．
+(4)イベントの名前，開始時刻，該当する列番号を取得．
+(5)セルの数値書式を設定しています．
+
+というわけで，sample\_calendar()を実行すると，↓こんなかんじになるかと思います．
+![screenshot\_sample\_calendar](https://github.com/gigei/Pivotal-Stories-to-GoogleSpreadSheet/blob/master/fig/capture01.png "サンプルのスクリーンショット")
+
+##ポイント
+
+1. 時刻をUTC時刻として扱っている
+2. セルの数値書式をsetNumberFormat()で設定する
+
+1に関しては，自分でとてもハマってしまったところです．
+GASの仕様なのか自分の環境の問題なのか，なぜかタイムゾーンの設定がPSTになってしまいます．スクリプトのプロパティやらスプレッドシートの設定やらのタイムゾーンは全て東京(GMT+09:00)にしてあるのですが．．．
+Googleさんのサーバーの場所のタイムゾーンになってしまっている？のでしょうか．．．
+よくわかりません．
+PSTになってしまうとわかっていれば，決め打ちでオフセットを掛けても問題はないかもしれませんが，やはりそれではスマートではないので，UTC時刻を使うことにしました．
+
 > By default, all dates are returned in the user's timezone, which can be
 > configured on the Profile page (accessible via the drop-down menu under your
 > name in the top right corner). If you prefer dates to be returned in UTC, add
 > the X-Tracker-Use-UTC header.
 
+PTのAPIリファレンスには↑のように書いてあり，ヘッダーに「UTCでちょうだいね」と添えてあげる事で，日付データをUTC時刻で返してくれます．（サンプルコードの日付文字列のような形式になります）
+
+2は日付データのシート上での扱いについてです．
+setFormula()を使って，スプレッドシート内の関数である，Text(**value**,
+**format**) などとしてもOKかとおもいますが，こちらの方がシンプルです．
+注意点として，直接スクリプト上で，月や日を文字列として整形してから書きだしてしまいますと，後でその日付データを使おうとした時にまたパースしないといけないので，値は日付データのままで，書式を設定してあげると都合が良いです．
+スプレッドシートの日付データを取得すると，そのままDateオブジェクトとして扱ってくれる（？）ようですので．
+
 ##まとめ
+３回目で説明が雑になってしまいましたが．．．
+以上が実際外部APIと連携したスクリプトを書いてみて自分で使ったTipsのまとめです．
+
+一応，外部APIからデータを取得してスプレッドシートに並べるという一連の流れを追えたのではないかと勝手に思っています．
+
+自分でスクリプトを組むにあたって苦労したところを中心に書いたつもりなので，同じように苦しむ人の参考に少しでもなればいいかなぁと思います．
+
+GASは気軽にいろいろ遊べるというところがとてもいいですね！
+Javascriptの勉強にもなりました．
 
 ---
 
 ※1 実際の作成の経緯については[こちらのブログ](http://blog.gigei.jp/tech/000073.html)を参照してください．
-※2 詳しくは、[GASのリファレンス](https://developers.google.com/apps-script/service_scriptdb)を参照してください。
+※2 現実のデータとはなんの関係もありません．
 
 
